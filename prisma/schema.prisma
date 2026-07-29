@@ -1,0 +1,92 @@
+// Prisma schema for the AI Interview Preparation Platform
+// Dev: SQLite (zero-config). Swap provider to "postgresql" for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String
+  email         String            @unique
+  passwordHash  String
+  createdAt     DateTime          @default(now())
+
+  resumes       Resume[]
+  sessions      InterviewSession[]
+  companyProgress CompanyProgress[]
+}
+
+model Resume {
+  id            String   @id @default(cuid())
+  userId        String
+  fileName      String
+  rawText       String            // extracted text from PDF
+  analysis      String?           // JSON string: AI analysis (strengths, gaps, ATS score, suggestions)
+  atsScore      Int?
+  createdAt     DateTime          @default(now())
+
+  user          User              @relation(fields: [userId], references: [id])
+}
+
+// One InterviewSession = one full mock interview run (HR or Technical/Coding)
+model InterviewSession {
+  id            String   @id @default(cuid())
+  userId        String
+  mode          String            // "HR" | "TECHNICAL" | "CODING"
+  role          String            // e.g. "Frontend Developer", target job role
+  status        String            @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  overallScore  Int?              // 0-100, filled in after feedback
+  createdAt     DateTime          @default(now())
+  completedAt   DateTime?
+
+  user          User              @relation(fields: [userId], references: [id])
+  questions     InterviewQuestion[]
+  feedback      Feedback?
+}
+
+model InterviewQuestion {
+  id            String   @id @default(cuid())
+  sessionId     String
+  order         Int
+  questionText  String
+  answerText    String?           // transcribed (voice-to-text) or typed answer
+  answeredVia   String?           // "VOICE" | "TEXT"
+  category      String?           // e.g. "DSA", "System Design", "Behavioral"
+
+  session       InterviewSession  @relation(fields: [sessionId], references: [id])
+}
+
+model Feedback {
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
+  summary         String            // AI-written overall summary
+  strengths       String            // JSON array string
+  improvements    String            // JSON array string
+  communicationScore Int
+  technicalScore     Int
+  confidenceScore    Int
+  createdAt       DateTime          @default(now())
+
+  session         InterviewSession  @relation(fields: [sessionId], references: [id])
+}
+
+// Tracks a user's prep progress for a specific company (companies themselves
+// live in src/data/companies.ts as static data, not the DB, to keep this simple).
+model CompanyProgress {
+  id                 String   @id @default(cuid())
+  userId             String
+  companySlug        String
+  solvedQuestionIds  String   @default("[]") // JSON array of question keys, e.g. ["coding:0", "technical:Java:1"]
+  mockTestsCompleted Int      @default(0)
+  updatedAt          DateTime @updatedAt
+
+  user               User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, companySlug])
+}
