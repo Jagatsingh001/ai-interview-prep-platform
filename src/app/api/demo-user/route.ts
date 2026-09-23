@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// Temporary helper: since auth (login/signup) hasn't been built yet,
-// this finds-or-creates a single demo user so the interview/resume/dashboard
-// features have a userId to attach data to. Safe to delete once real auth exists.
+// This endpoint originally returned a hardcoded placeholder "demo user" so
+// every feature had a userId to work with before real auth existed. It now
+// returns the REAL logged-in user's id from the session instead — every page
+// that calls this (interview, coding, resume, dashboard, companies) keeps
+// working exactly as before with zero changes needed on their end, they just
+// now get a real user id instead of the demo one.
+//
+// The route path/name is kept as "demo-user" on purpose to avoid touching
+// every page that calls it — a future cleanup could rename it to
+// "current-user" and update the ~5 call sites, but that's purely cosmetic.
 export async function GET() {
-  const DEMO_EMAIL = 'demo@preproom.local';
+  const session = await getServerSession(authOptions);
 
-  let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
-
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        name: 'Demo User',
-        email: DEMO_EMAIL,
-        passwordHash: 'not-a-real-password', // replaced once real auth is added
-      },
-    });
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Not logged in' }, { status: 401 });
   }
 
-  return NextResponse.json({ userId: user.id });
+  const userId = (session.user as { id?: string }).id;
+  return NextResponse.json({ userId });
 }

@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import LogoutButton from './logout-button';
 
 const features = [
   { label: 'Mock Interviewer', desc: 'AI asks, follows up, and adapts to your answers — HR or technical.' },
@@ -9,7 +12,9 @@ const features = [
   { label: 'Performance Dashboard', desc: 'Track scores across sessions and see exactly where to improve.' },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await getServerSession(authOptions);
+
   return (
     <main className="min-h-screen studio-ambience">
       {/* Nav */}
@@ -21,6 +26,23 @@ export default function LandingPage() {
           <Link href="/resume" className="hover:text-studio-text transition">Resume</Link>
           <Link href="/companies" className="hover:text-studio-text transition">Companies</Link>
           <Link href="/dashboard" className="hover:text-studio-text transition">Dashboard</Link>
+
+          {session?.user ? (
+            <div className="flex items-center gap-3 pl-4 border-l border-studio-border">
+              <span className="text-studio-text text-sm">Hi, {session.user.name}</span>
+              <LogoutButton />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 pl-4 border-l border-studio-border">
+              <Link href="/login" className="hover:text-studio-text transition">Log in</Link>
+              <Link
+                href="/signup"
+                className="bg-studio-accent text-studio-bg font-semibold px-4 py-1.5 rounded-lg hover:shadow-glow transition"
+              >
+                Sign up
+              </Link>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -39,10 +61,10 @@ export default function LandingPage() {
         </p>
         <div className="flex gap-4 mt-10">
           <Link
-            href="/interview"
+            href={session?.user ? '/interview' : '/signup'}
             className="bg-studio-accent text-studio-bg font-semibold px-6 py-3 rounded-lg hover:shadow-glow transition"
           >
-            Start a mock interview
+            {session?.user ? 'Start a mock interview' : 'Get started — it\'s free'}
           </Link>
           <Link
             href="/resume"
